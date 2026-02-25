@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+
+
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Simulador de Tanque Pro: MathJax + Dinámica</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --main-blue: #2980b9; --bg-light: #f4f7f6; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg-light); padding: 20px; color: #2c3e50; }
+        .grid-layout { display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px; max-width: 1100px; margin: auto; }
+        
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.05); }
+        
+        /* Estética del Tanque Cilíndrico con Casquetes */
+        .tank-visual { display: flex; align-items: center; justify-content: center; height: 180px; margin: 20px 0; }
+        .cap { width: 50px; height: 120px; border: 3px solid #34495e; background: #dfe6e9; position: relative; overflow: hidden; }
+        .cap.l { border-radius: 60px 0 0 60px; border-right: none; }
+        .cap.r { border-radius: 0 60px 60px 0; border-left: none; }
+        .body-tank { width: 150px; height: 120px; border-top: 3px solid #34495e; border-bottom: 3px solid #34495e; background: #dfe6e9; position: relative; overflow: hidden; }
+        .water { position: absolute; bottom: 0; width: 100%; height: 0%; background: linear-gradient(to top, #3498db, #5dade2); transition: height 0.1s linear; }
+
+        .math-display { font-size: 0.9em; background: #f9f9f9; padding: 15px; border-left: 5px solid var(--main-blue); margin-top: 15px; }
+        .controls { display: flex; flex-direction: column; gap: 10px; }
+        button { background: var(--main-blue); color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        button:hover { background: #1a5276; }
+    </style>
+</head>
+<body>
+
+<h2 style="text-align: center;">Modelo Matemático de Llenado con Casquetes Esféricos con MathJax</h2>
+
+<div class="grid-layout">
+    <div class="card">
+        <h3>Simulación Física</h3>
+        <div class="tank-visual">
+            <div class="cap l"><div id="w1" class="water"></div></div>
+            <div class="body-tank"><div id="w2" class="water"></div></div>
+            <div class="cap r"><div id="w3" class="water"></div></div>
+        </div>
+
+        <div class="controls">
+            <label>Caudal \( Q_{in} \): <input type="range" id="flow" min="10" max="60" value="25"></label>
+            <button onclick="resetSim()">Reiniciar y Simular</button>
+        </div>
+
+        <div class="math-display"> 
+            <strong>Ecuación de Estado:</strong>
+            <div id="latex-formula">
+                \[ \frac{dh}{dt} = \frac{Q_{in}}{A(h)} \]
+            </div>
+            <small>Cálculo de Área en tiempo real:</small>
+            <div id="area-calc" style="color: #c0392b; font-weight: bold;">A(h) = ...</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>Análisis de Datos \( N(t) \)</h3>
+        <canvas id="chart"></canvas>
+    </div>
+</div>
+
+<script>
+    const w = [document.getElementById('w1'), document.getElementById('w2'), document.getElementById('w3')];
+    const areaText = document.getElementById('area-calc');
+    let h = 0; let t = 0; let timer;
+
+    const ctx = document.getElementById('chart').getContext('2d');
+    const chart = new Chart(ctx, {
+        type: 'line',
+        data: { labels: [], datasets: [{ label: 'Nivel del agua (h)', data: [], borderColor: '#2980b9', tension: 0.4, fill: true, backgroundColor: 'rgba(41, 128, 185, 0.1)' }] },
+        options: { scales: { y: { min: 0, max: 100 }, x: { display: false } }, animation: false }
+    });
+
+    function step() {
+        if (h >= 100) return clearInterval(timer);
+
+        const Qin = document.getElementById('flow').value / 5;
+        const R = 50; // Radio del tanque
+        const currentH = h / 100 * (2 * R); // Convertir % a unidades reales
+
+        // Física: Área de un cilindro horizontal con casquetes
+        // Área = L * w(h) + PI * r(h)^2
+        const L = 100;
+        const chord = 2 * Math.sqrt(Math.pow(R, 2) - Math.pow(R - currentH, 2)) || 2;
+        const Area = (L * chord) + (Math.PI * (Math.pow(R, 2) - Math.pow(R - currentH, 2)));
+
+        const dh = Qin / (Area / 50); 
+        h += dh;
+        if (h > 100) h = 100;
+
+        // Update UI
+        w.forEach(el => el.style.height = h + '%');
+        areaText.innerText = `Área Actual A(h): ${Area.toFixed(2)} u²`;
+
+        t += 0.2;
+        chart.data.labels.push(t.toFixed(1));
+        chart.data.datasets[0].data.push(h);
+        chart.update();
+    }
+
+    function resetSim() {
+        clearInterval(timer);
+        h = 0; t = 0;
+        chart.data.labels = [];
+        chart.data.datasets[0].data = [];
+        w.forEach(el => el.style.height = '0%');
+        timer = setInterval(step, 60);
+    }
+
+    timer = setInterval(step, 60);
+</script>
+
+</body>
+</html>
