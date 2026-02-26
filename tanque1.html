@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Llenado de Tanque</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f4f8;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            display: flex;
+            gap: 40px;
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        /* Estilo del Tanque */
+        .tank-container {
+            position: relative;
+            width: 200px;
+            height: 150px;
+            border: 4px solid #444;
+            border-radius: 50% / 50%; /* Forma elipsoidal */
+            overflow: hidden;
+            background: #eee;
+        }
+
+        .water {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 0%;
+            background: linear-gradient(180deg, #4facfe 0%, #00f2fe 100%);
+            transition: height 0.1s linear;
+        }
+
+        .controls {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        input[type="range"] {
+            width: 200px;
+            cursor: pointer;
+        }
+
+        .chart-container {
+            width: 450px;
+            height: 300px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        button:hover { background-color: #0056b3; }
+        
+        .math-box {
+            margin-top: 20px;
+            font-style: italic;
+            color: #555;
+            max-width: 600px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Simulación de Llenado: Modelo Dinámico</h1>
+
+    <div class="container">
+        <div>
+            <div class="tank-container">
+                <div id="waterLevel" class="water"></div>
+            </div>
+            <div class="controls">
+                <p>Caudal de Entrada ($Q_{in}$): <span id="flowValue">5</span></p>
+                <input type="range" id="flowRate" min="1" max="20" value="5">
+                <br>
+                <button onclick="resetSimulation()">Reiniciar Llenado</button>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="fillingChart"></canvas>
+        </div>
+    </div>
+
+    <div class="math-box">
+        <p><strong>Modelo Matemático:</strong> $\frac{dN}{dt} = \frac{Q_{in}}{A(N)}$</p>
+        <small>Nota: Observa cómo el nivel sube más rápido en los extremos (donde el área $A(N)$ es menor) y más lento en el centro.</small>
+    </div>
+
+    <script>
+        const waterDiv = document.getElementById('waterLevel');
+        const flowInput = document.getElementById('flowRate');
+        const flowValueSpan = document.getElementById('flowValue');
+        
+        let level = 0; // Porcentaje de llenado 0-100
+        let time = 0;
+        let animationId;
+
+        // Configuración de Chart.js
+        const ctx = document.getElementById('fillingChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Nivel del Agua (N)',
+                    data: [],
+                    borderColor: '#007bff',
+                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                scales: {
+                    x: { title: { display: true, text: 'Tiempo (t)' } },
+                    y: { min: 0, max: 100, title: { display: true, text: 'Nivel (%)' } }
+                },
+                animation: false
+            }
+        });
+
+        function updateSimulation() {
+            if (level >= 100) {
+                cancelAnimationFrame(animationId);
+                return;
+            }
+
+            const Qin = parseFloat(flowInput.value);
+            
+            /* DINÁMICA NO LINEAL:
+               Para un tanque elíptico, el área transversal A(N) es mayor en el centro.
+               A(N) aproximada por una parábola invertida: Area = 1 + sin(pi * level / 100)
+            */
+            const currentArea = 1 + Math.sin(Math.PI * (level / 100));
+            const dN = Qin / (currentArea * 5); // Factor 5 para suavizar la animación
+
+            level += dN;
+            if (level > 100) level = 100;
+
+            // Actualizar visualización
+            waterDiv.style.height = level + '%';
+            
+            // Actualizar gráfica
+            time += 0.1;
+            chart.data.labels.push(time.toFixed(1));
+            chart.data.datasets[0].data.push(level);
+
+            // Mantener la gráfica legible limitando puntos
+            if (chart.data.labels.length > 50) {
+                // chart.data.labels.shift();
+                // chart.data.datasets[0].data.shift();
+            }
+            
+            chart.update();
+            flowValueSpan.innerText = Qin;
+
+            animationId = requestAnimationFrame(updateSimulation);
+        }
+
+        function resetSimulation() {
+            cancelAnimationFrame(animationId);
+            level = 0;
+            time = 0;
+            chart.data.labels = [];
+            chart.data.datasets[0].data = [];
+            waterDiv.style.height = '0%';
+            chart.update();
+            updateSimulation();
+        }
+
+        // Iniciar al cargar
+        updateSimulation();
+
+    </script>
+</body>
+</html>
